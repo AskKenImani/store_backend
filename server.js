@@ -18,7 +18,22 @@ connectDB();
 const app = express();
 
 app.use(express.json()); 
-app.use(cors()); 
+const allowedOrigins = [
+  'http://localhost:3000',     // or 5173 for Vite
+  'https://kenmaticsstore.netlify.app',  // update this after deploying frontend
+];
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
+
 
 
 app.use('/api/auth', authRoutes);       

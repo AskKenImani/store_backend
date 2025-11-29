@@ -1,20 +1,29 @@
 const Product = require('../models/Product');
 const cloudinary = require('../config/cloudinary');
 
-// Function to add a product
+// Add a product
 const addProduct = async (req, res) => {
   try {
     const { name, description, price, category, uploadedBy } = req.body;
-    
-    // Handling image upload to Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path);
+
+    if (!req.file && !req.body.imageUrl) {
+      return res.status(400).json({ message: 'Product image is required' });
+    }
+
+    let imageUrl = req.body.imageUrl;
+
+    // If file uploaded, upload to Cloudinary
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path);
+      imageUrl = result.secure_url;
+    }
 
     const product = new Product({
       name,
       description,
       price,
       category,
-      imageUrl: result.secure_url,
+      imageUrl,
       uploadedBy,
     });
 
@@ -25,7 +34,7 @@ const addProduct = async (req, res) => {
   }
 };
 
-// Function to get all products
+// Get all products
 const getProducts = async (req, res) => {
   try {
     const products = await Product.find();
@@ -35,33 +44,29 @@ const getProducts = async (req, res) => {
   }
 };
 
-// Function to update a product
+// Update a product
 const updateProduct = async (req, res) => {
   try {
     const { name, description, price, category } = req.body;
     const productId = req.params.id;
 
-    // Check if the product exists
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // If a new image is uploaded, handle image update
-    let imageUrl = product.imageUrl;
+    // If new image is uploaded
     if (req.file) {
       const result = await cloudinary.uploader.upload(req.file.path);
-      imageUrl = result.secure_url;
+      product.imageUrl = result.secure_url;
     }
 
-    // Update product details
+    // Update other fields if provided
     product.name = name || product.name;
     product.description = description || product.description;
     product.price = price || product.price;
     product.category = category || product.category;
-    product.imageUrl = imageUrl;
 
-    // Save the updated product
     await product.save();
 
     res.status(200).json({ message: 'Product updated successfully', product });
@@ -70,20 +75,17 @@ const updateProduct = async (req, res) => {
   }
 };
 
-// Function to delete a product
+// Delete a product
 const deleteProduct = async (req, res) => {
   try {
     const productId = req.params.id;
-
-    // Check if the product exists
     const product = await Product.findById(productId);
+
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Delete the product
     await product.remove();
-
     res.status(200).json({ message: 'Product deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Error deleting product', error: err.message });
