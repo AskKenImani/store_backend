@@ -93,17 +93,26 @@ const getProductById = async (req, res) => {
 // Delete a product
 const deleteProduct = async (req, res) => {
   try {
-    const productId = req.params.id;
-    const product = await Product.findById(productId);
+    const product = await Product.findById(req.params.id);
 
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ message: "Product not found" });
     }
 
-    await product.remove();
-    res.status(200).json({ message: 'Product deleted successfully' });
+    // 🔐 Allow admins to delete anything
+    if (
+      req.user.role !== "admin" &&
+      product.createdBy.toString() !== req.user.id
+    ) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    await product.deleteOne();
+
+    res.json({ message: "Product deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: 'Error deleting product', error: err.message });
+    console.error("DELETE PRODUCT ERROR:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
