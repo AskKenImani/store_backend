@@ -19,8 +19,8 @@ const app = express();
 
 app.use(express.json()); 
 const allowedOrigins = [
-  'http://localhost:3000',     // or 5173 for Vite
-  'https://kenmaticsstore.netlify.app',  // update this after deploying frontend
+  'http://localhost:3000',    
+  'https://kenmaticsstore.netlify.app',  
 ];
 
 app.use(cors({

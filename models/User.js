@@ -6,6 +6,10 @@ const userSchema = mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, default: 'user' },  // 'admin', 'manager', 'user'
   phoneNumber: { type: String, required: true },
+
+  resetPasswordToken: {type: String},
+  resetPasswordExpire: {type: Date},
+
 });
 
 module.exports = mongoose.model('User', userSchema);
