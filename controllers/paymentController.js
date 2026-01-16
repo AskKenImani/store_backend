@@ -6,38 +6,55 @@ const payWithPaystack = async (req, res) => {
   const { amount, orderId, email } = req.body;
 
   try {
+    console.log("Paystack init payload:", { amount, orderId, email });
+
     const order = await Order.findById(orderId);
-    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!order) {
+      console.log("Order not found:", orderId);
+      return res.status(404).json({ message: "Order not found" });
+    }
 
-    const paymentUrl = `https://api.paystack.co/transaction/initialize`;
-    const headers = {
-      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-      'Content-Type': 'application/json',
-    };
+    const { data } = await axios.post(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        email,
+        amount: amount * 100,
+        metadata: {
+          orderId: order._id.toString(),
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    const paymentData = {
-      email,
-      amount: amount * 100, // Paystack expects amount in kobo (100 kobo = 1 Naira)
-      order_id: orderId,
-    };
+    console.log("Paystack response:", data);
 
-    const { data } = await axios.post(paymentUrl, paymentData, { headers });
-
-    // Store payment information in the database
     const payment = new Payment({
       user: order.user,
       order: order._id,
-      paymentMethod: 'Paystack',
-      paymentStatus: 'pending',
+      paymentMethod: "Paystack",
+      paymentStatus: "pending",
     });
 
     await payment.save();
-    
-    res.status(200).json({ message: 'Payment initialized', paymentUrl: data.data.authorization_url });
+
+    res.status(200).json({
+      paymentUrl: data.data.authorization_url,
+    });
+
   } catch (err) {
-    res.status(500).json({ message: 'Error initializing payment', error: err.message });
+    console.error("Paystack init error:", err.response?.data || err.message);
+    res.status(500).json({
+      message: "Error initializing payment",
+      error: err.response?.data || err.message,
+    });
   }
 };
+
 
 const verifyPayment = async (req, res) => {
   const { reference } = req.body;
