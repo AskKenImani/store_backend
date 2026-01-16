@@ -5,6 +5,8 @@ const roleMiddleware = require('../middleware/roleMiddleware');
 
 const router = express.Router();
 
+router.patch("/change-password", authMiddleware, changePassword);
+
 router.get('/', authMiddleware, roleMiddleware('admin'), async (req, res) => {
   try {
 
