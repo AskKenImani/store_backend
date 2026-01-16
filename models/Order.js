@@ -11,3 +11,5 @@ const orderSchema = mongoose.Schema({
   totalAmount: { type: Number, required: true },
   paymentStatus: { type: String, default: 'pending' },
 });
+
+module.exports = mongoose.model('Order', orderSchema);
