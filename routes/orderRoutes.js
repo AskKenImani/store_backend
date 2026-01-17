@@ -20,6 +20,22 @@ router.get('/my', authMiddleware, async (req, res) => {
   }
 });
 
+// DELETE /orders/:id
+router.delete("/:id", authMiddleware, async (req, res) => {
+  const order = await Order.findById(req.params.id);
+
+  if (!order) return res.status(404).json({ message: "Order not found" });
+  if (order.paymentStatus !== "pending") {
+    return res.status(400).json({ message: "Cannot cancel paid order" });
+  }
+
+  await order.deleteOne();
+  await Payment.deleteOne({ order: order._id });
+
+  res.json({ message: "Order cancelled" });
+});
+
+
 
 router.get('/', authMiddleware, roleMiddleware('admin'), orderController.getOrders);
 // If your orderController.getOrders does NOT return all orders,

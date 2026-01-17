@@ -61,26 +61,56 @@ const verifyPayment = async (req, res) => {
 
   try {
     const verifyUrl = `https://api.paystack.co/transaction/verify/${reference}`;
-    const headers = {
-      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-    };
 
-    const { data } = await axios.get(verifyUrl, { headers });
+    const { data } = await axios.get(verifyUrl, {
+      headers: {
+        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+      },
+    });
 
-    if (data.status === 'success') {
-      const payment = await Payment.findOneAndUpdate(
-        { order: data.data.order_id },
-        { paymentStatus: 'completed' },
-        { new: true }
-      );
-
-      res.status(200).json({ message: 'Payment successful', payment });
-    } else {
-      res.status(400).json({ message: 'Payment failed' });
+    // ✅ Correct success check
+    if (!data.status || data.data.status !== "success") {
+      return res.status(400).json({ message: "Payment not successful" });
     }
+
+    const orderId = data.data.metadata.orderId;
+
+    // ✅ Update payment
+    const payment = await Payment.findOneAndUpdate(
+      { order: orderId },
+      { paymentStatus: "completed" },
+      { new: true }
+    );
+
+    if (!payment) {
+      return res.status(404).json({ message: "Payment record not found" });
+    }
+
+    // ✅ Update order
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      {
+        paymentStatus: "paid",
+        isPaid: true,
+        paidAt: Date.now(),
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      message: "Payment verified successfully",
+      order,
+      payment,
+    });
+
   } catch (err) {
-    res.status(500).json({ message: 'Error verifying payment', error: err.message });
+    console.error("Verify error:", err.response?.data || err.message);
+    res.status(500).json({
+      message: "Error verifying payment",
+      error: err.response?.data || err.message,
+    });
   }
 };
+
 
 module.exports = { payWithPaystack, verifyPayment };
