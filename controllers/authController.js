@@ -106,6 +106,7 @@ const login = async (req, res) => {
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
+    console.log("Forgot password request for:", email);
 
     const user = await User.findOne({ email });
     if (!user) {
@@ -119,33 +120,33 @@ const forgotPassword = async (req, res) => {
       .update(resetToken)
       .digest("hex");
 
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
 
     await user.save();
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    const message = `
-      <p>You requested a password reset.</p>
-      <p>Click the link below to reset your password:</p>
-      <a href="${resetUrl}">${resetUrl}</a>
-      <p>This link expires in 10 minutes.</p>
-    `;
-
     await sendEmail({
       to: user.email,
       subject: "Password Reset Request",
-      html: message,
+      html: `
+        <p>You requested a password reset.</p>
+        <a href="${resetUrl}">Reset Password</a>
+        <p>This link expires in 10 minutes.</p>
+      `,
     });
 
     res.json({ message: "Password reset link sent to email" });
+
   } catch (err) {
+    console.error("Forgot password error:", err);
     res.status(500).json({
       message: "Error sending reset email",
       error: err.message,
     });
   }
 };
+
 
 // ==========================
 // RESET PASSWORD
