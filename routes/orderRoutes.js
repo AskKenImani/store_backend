@@ -8,6 +8,10 @@ const router = express.Router();
 
 router.post('/', authMiddleware, orderController.createOrder);
 
+router.patch( "/:id/resolve", authMiddleware, roleMiddleware("admin"), orderController.resolveOrder );
+
+router.delete( "/:id", authMiddleware, roleMiddleware("admin"), orderController.deleteOrder );
+
 
 router.get('/my', authMiddleware, async (req, res) => {
   try {
@@ -34,7 +38,6 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 
   res.json({ message: "Order cancelled" });
 });
-
 
 
 router.get('/', authMiddleware, roleMiddleware('admin'), orderController.getOrders);

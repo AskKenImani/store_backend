@@ -45,4 +45,14 @@ router.patch('/:id/role', authMiddleware, roleMiddleware('admin'), async (req, r
   }
 });
 
+router.delete(
+  "/:id",
+  authMiddleware,
+  roleMiddleware("admin"),
+  async (req, res) => {
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ message: "User deleted" });
+  }
+);
+
 module.exports = router;

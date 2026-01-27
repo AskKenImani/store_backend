@@ -1,4 +1,3 @@
-
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
@@ -106,7 +105,6 @@ const login = async (req, res) => {
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    console.log("Forgot password request for:", email);
 
     const user = await User.findOne({ email });
     if (!user) {
@@ -121,22 +119,24 @@ const forgotPassword = async (req, res) => {
       .digest("hex");
 
     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
-
     await user.save();
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    await sendEmail({
+    // Respond immediately (IMPORTANT)
+    res.json({ message: "Password reset link sent to email" });
+
+    // Send email AFTER response
+    sendEmail({
       to: user.email,
       subject: "Password Reset Request",
       html: `
         <p>You requested a password reset.</p>
-        <a href="${resetUrl}">Reset Password</a>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}">${resetUrl}</a>
         <p>This link expires in 10 minutes.</p>
       `,
-    });
-
-    res.json({ message: "Password reset link sent to email" });
+    }).catch(console.error);
 
   } catch (err) {
     console.error("Forgot password error:", err);
@@ -146,7 +146,6 @@ const forgotPassword = async (req, res) => {
     });
   }
 };
-
 
 // ==========================
 // RESET PASSWORD
