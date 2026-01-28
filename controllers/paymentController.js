@@ -1,24 +1,21 @@
-const axios = require('axios');
-const Payment = require('../models/Payment');
-const Order = require('../models/Order');
+const axios = require("axios");
+const Payment = require("../models/Payment");
+const Order = require("../models/Order");
 
+// INIT PAYMENT
 const payWithPaystack = async (req, res) => {
-  const { amount, orderId, email } = req.body;
-
   try {
-    console.log("Paystack init payload:", { amount, orderId, email });
+    const { amount, orderId, email } = req.body;
 
     const order = await Order.findById(orderId);
-    if (!order) {
-      console.log("Order not found:", orderId);
+    if (!order)
       return res.status(404).json({ message: "Order not found" });
-    }
 
-    const { data } = await axios.post(
+    const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
       {
         email,
-        amount: amount * 100,
+        amount, // ✅ already in kobo
         metadata: {
           orderId: order._id.toString(),
         },
@@ -31,86 +28,71 @@ const payWithPaystack = async (req, res) => {
       }
     );
 
-    console.log("Paystack response:", data);
+    const { authorization_url, reference } = response.data.data;
 
-    const payment = new Payment({
+    // save payment
+    await Payment.create({
       user: order.user,
       order: order._id,
-      paymentMethod: "Paystack",
+      reference,
       paymentStatus: "pending",
     });
 
-    await payment.save();
-
-    res.status(200).json({
-      paymentUrl: data.data.authorization_url,
-    });
-
+    res.json({ paymentUrl: authorization_url });
   } catch (err) {
     console.error("Paystack init error:", err.response?.data || err.message);
-    res.status(500).json({
-      message: "Error initializing payment",
-      error: err.response?.data || err.message,
-    });
+    res.status(500).json({ message: "Payment initialization failed" });
   }
 };
 
-
+// VERIFY PAYMENT
 const verifyPayment = async (req, res) => {
-  const { reference } = req.body;
-
   try {
-    const verifyUrl = `https://api.paystack.co/transaction/verify/${reference}`;
+    const { reference } = req.body;
 
-    const { data } = await axios.get(verifyUrl, {
-      headers: {
-        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-      },
-    });
+    const verifyRes = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+      }
+    );
 
-    // ✅ Correct success check
-    if (!data.status || data.data.status !== "success") {
+    const paystackData = verifyRes.data.data;
+
+    if (paystackData.status !== "success") {
       return res.status(400).json({ message: "Payment not successful" });
     }
 
-    const orderId = data.data.metadata.orderId;
+    const orderId = paystackData.metadata.orderId;
 
-    // ✅ Update payment
+    // update payment
     const payment = await Payment.findOneAndUpdate(
-      { order: orderId },
+      { reference },
       { paymentStatus: "completed" },
       { new: true }
     );
 
-    if (!payment) {
-      return res.status(404).json({ message: "Payment record not found" });
-    }
+    if (!payment)
+      return res.status(404).json({ message: "Payment not found" });
 
-    // ✅ Update order
+    // update order
     const order = await Order.findByIdAndUpdate(
       orderId,
-      {
-        paymentStatus: "paid",
-        isPaid: true,
-        paidAt: Date.now(),
-      },
+      { paymentStatus: "completed" },
       { new: true }
     );
 
-    res.status(200).json({
+    res.json({
       message: "Payment verified successfully",
       order,
       payment,
     });
-
   } catch (err) {
     console.error("Verify error:", err.response?.data || err.message);
-    res.status(500).json({
-      message: "Error verifying payment",
-      error: err.response?.data || err.message,
-    });
+    res.status(500).json({ message: "Payment verification failed" });
   }
 };
-
 
 module.exports = { payWithPaystack, verifyPayment };

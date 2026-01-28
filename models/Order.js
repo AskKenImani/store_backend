@@ -12,20 +12,27 @@ const orderSchema = new mongoose.Schema(
         product: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Product",
+          required: true,
         },
-        quantity: Number,
+        quantity: {
+          type: Number,
+          required: true,
+          min: 1,
+        },
       },
     ],
-    totalAmount: Number,
+    totalAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
     paymentStatus: {
       type: String,
       enum: ["pending", "completed", "failed"],
       default: "pending",
     },
   },
-  {
-    timestamps: true, 
-  }
+  { timestamps: true } // 🔥 VERY IMPORTANT
 );
 
 module.exports = mongoose.model("Order", orderSchema);

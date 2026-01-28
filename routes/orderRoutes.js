@@ -14,7 +14,7 @@ router.get("/my", authMiddleware, orderController.getMyOrders);
 // Admin: all orders
 router.get("/", authMiddleware, roleMiddleware("admin"), orderController.getOrders);
 
-// Admin: resolve pending order
+// Admin: resolve order
 router.patch(
   "/:id/resolve",
   authMiddleware,

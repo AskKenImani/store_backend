@@ -1,35 +1,47 @@
 const Order = require("../models/Order");
 const Payment = require("../models/Payment");
 
-// Create order
+// ✅ CREATE ORDER (Checkout entry point)
 const createOrder = async (req, res) => {
   try {
     const { products, totalAmount } = req.body;
+
+    if (!products || products.length === 0) {
+      return res.status(400).json({ message: "Cart is empty" });
+    }
+
+    if (!totalAmount || totalAmount <= 0) {
+      return res.status(400).json({ message: "Invalid total amount" });
+    }
 
     const order = await Order.create({
       user: req.user._id,
       products,
       totalAmount,
-      paymentStatus: "pending",
     });
 
-    res.status(201).json({ order });
+    res.status(201).json({
+      success: true,
+      orderId: order._id,
+      totalAmount: order.totalAmount,
+      paymentStatus: order.paymentStatus,
+    });
   } catch (err) {
     console.error("Order creation failed:", err);
     res.status(500).json({ message: "Failed to create order" });
   }
 };
 
-// User orders
+// ✅ USER ORDERS
 const getMyOrders = async (req, res) => {
   const orders = await Order.find({ user: req.user._id })
-    .sort({ createdAt: -1 })
-    .populate("products.product");
+    .populate("products.product")
+    .sort({ createdAt: -1 });
 
   res.json({ orders });
 };
 
-// Admin: all orders
+// ✅ ADMIN: ALL ORDERS
 const getOrders = async (req, res) => {
   const orders = await Order.find()
     .populate("user", "name email role")
@@ -39,10 +51,12 @@ const getOrders = async (req, res) => {
   res.json({ orders });
 };
 
-// Resolve order after 1 hour
+// ✅ ADMIN: RESOLVE ORDER AFTER 1 HOUR
 const resolveOrder = async (req, res) => {
   const order = await Order.findById(req.params.id);
-  if (!order) return res.status(404).json({ message: "Order not found" });
+  if (!order) {
+    return res.status(404).json({ message: "Order not found" });
+  }
 
   if (order.paymentStatus !== "pending") {
     return res.status(400).json({ message: "Order already resolved" });
@@ -66,10 +80,11 @@ const resolveOrder = async (req, res) => {
   res.json({ status: order.paymentStatus });
 };
 
-// Admin: delete order
+// ✅ ADMIN: DELETE ORDER
 const deleteOrder = async (req, res) => {
   await Order.findByIdAndDelete(req.params.id);
   await Payment.deleteMany({ order: req.params.id });
+
   res.json({ message: "Order deleted" });
 };
 
