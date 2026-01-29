@@ -17,7 +17,7 @@ const payWithPaystack = async (req, res) => {
     }
 
     // 🔐 Convert to kobo (Paystack requirement)
-    const amountInKobo = Math.round(Number(amount) * 100);
+    const amountInKobo = Math.round(Number(amount));
 
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
