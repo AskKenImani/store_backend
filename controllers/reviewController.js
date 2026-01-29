@@ -1,32 +1,47 @@
-const Review = require('../models/Review');
+const Review = require("../models/Review");
+const Order = require("../models/Order");
 
-const addReview = async (req, res) => {
-  const { user, product, rating, comment } = req.body;
+// CREATE REVIEW
+exports.createReview = async (req, res) => {
+  const { productId, rating, comment } = req.body;
 
-  try {
-    const review = new Review({
-      user,
-      product,
-      rating,
-      comment,
-    });
+  const hasBought = await Order.findOne({
+    user: req.user._id,
+    paymentStatus: "completed",
+    "products.product": productId,
+  });
 
-    await review.save();
-    res.status(201).json({ message: 'Review added successfully', review });
-  } catch (err) {
-    res.status(500).json({ message: 'Error adding review', error: err.message });
+  if (!hasBought) {
+    return res
+      .status(403)
+      .json({ message: "You must purchase this product to review it" });
   }
+
+  const alreadyReviewed = await Review.findOne({
+    user: req.user._id,
+    product: productId,
+  });
+
+  if (alreadyReviewed) {
+    return res.status(400).json({ message: "Already reviewed" });
+  }
+
+  const review = await Review.create({
+    user: req.user._id,
+    product: productId,
+    rating,
+    comment,
+  });
+
+  res.status(201).json(review);
 };
 
-const getReviewsByProduct = async (req, res) => {
-  const { productId } = req.params;
+// GET PRODUCT REVIEWS
+exports.getProductReviews = async (req, res) => {
+  const reviews = await Review.find({ product: req.params.id }).populate(
+    "user",
+    "name"
+  );
 
-  try {
-    const reviews = await Review.find({ product: productId }).populate('user');
-    res.status(200).json({ reviews });
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching reviews', error: err.message });
-  }
+  res.json(reviews);
 };
-
-module.exports = { addReview, getReviewsByProduct };
