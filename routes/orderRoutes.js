@@ -30,4 +30,15 @@ router.delete(
   orderController.deleteOrder
 );
 
+router.get("/has-bought/:productId", authMiddleware, async (req, res) => {
+  const order = await Order.findOne({
+    user: req.user._id,
+    paymentStatus: "completed",
+    "products.product": req.params.productId,
+  });
+
+  res.json({ hasBought: !!order });
+});
+
+
 module.exports = router;
