@@ -5,16 +5,26 @@ const roleMiddleware = require("../middleware/roleMiddleware");
 
 const router = express.Router();
 
-/* USER */
-router.post("/", authMiddleware, reviewController.createReview);
+/* ================= PUBLIC ================= */
+
+// ⭐ HOMEPAGE REVIEWS
+router.get("/recent", reviewController.getRecentReviews);
+
+// PRODUCT REVIEWS
 router.get("/:id", reviewController.getProductReviews);
+
+/* ================= USER ================= */
+
 router.get(
   "/can-review/:productId",
   authMiddleware,
   reviewController.canReview
 );
 
-/* ADMIN */
+router.post("/", authMiddleware, reviewController.createReview);
+
+/* ================= ADMIN ================= */
+
 router.get(
   "/",
   authMiddleware,

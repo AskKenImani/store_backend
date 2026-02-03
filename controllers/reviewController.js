@@ -88,6 +88,20 @@ exports.getProductReviews = async (req, res) => {
 };
 
 /**
+ * ✅ GET RECENT REVIEWS (FOR HOMEPAGE)
+ */
+exports.getRecentReviews = async (req, res) => {
+  const reviews = await Review.find()
+    .populate("user", "name")
+    .populate("product", "name imageUrl")
+    .sort({ createdAt: -1 })
+    .limit(8);
+
+  res.json(reviews);
+};
+
+
+/**
  * ✅ ADMIN: GET ALL REVIEWS
  */
 exports.getAllReviews = async (req, res) => {

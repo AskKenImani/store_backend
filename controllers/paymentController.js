@@ -1,22 +1,24 @@
 const axios = require("axios");
+const crypto = require("crypto");
 const Payment = require("../models/Payment");
 const Order = require("../models/Order");
 
-// INIT PAYMENT
-const payWithPaystack = async (req, res) => {
+/**
+ * ===============================
+ * INIT PAYMENT
+ * ===============================
+ */
+exports.payWithPaystack = async (req, res) => {
   try {
     const { amount, orderId, email } = req.body;
 
     const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
-    }
+    if (!order) return res.status(404).json({ message: "Order not found" });
 
     if (order.paymentStatus === "completed") {
       return res.status(400).json({ message: "Order already paid" });
     }
 
-    // 🔐 Convert to kobo (Paystack requirement)
     const amountInKobo = Math.round(Number(amount));
 
     const response = await axios.post(
@@ -40,7 +42,6 @@ const payWithPaystack = async (req, res) => {
 
     const { authorization_url, reference } = response.data.data;
 
-    // Save or update payment
     await Payment.findOneAndUpdate(
       { order: order._id },
       {
@@ -59,14 +60,15 @@ const payWithPaystack = async (req, res) => {
   }
 };
 
-// VERIFY PAYMENT (called from frontend success page)
-const verifyPayment = async (req, res) => {
+/**
+ * ===============================
+ * VERIFY (OPTIONAL – FRONTEND)
+ * ===============================
+ */
+exports.verifyPayment = async (req, res) => {
   try {
     const { reference } = req.body;
-
-    if (!reference) {
-      return res.status(400).json({ message: "Missing reference" });
-    }
+    if (!reference) return res.status(400).json({ message: "Missing reference" });
 
     const verifyRes = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
@@ -78,40 +80,65 @@ const verifyPayment = async (req, res) => {
     );
 
     const data = verifyRes.data.data;
-
     if (data.status !== "success") {
       return res.status(400).json({ message: "Payment not successful" });
     }
 
     const orderId = data.metadata.orderId;
 
-    // Update payment
-    const payment = await Payment.findOneAndUpdate(
+    await Payment.findOneAndUpdate(
       { reference },
-      { paymentStatus: "completed" },
-      { new: true }
+      { paymentStatus: "completed" }
     );
 
-    if (!payment) {
-      return res.status(404).json({ message: "Payment not found" });
-    }
-
-    // Update order
     const order = await Order.findByIdAndUpdate(
       orderId,
       { paymentStatus: "completed" },
       { new: true }
     );
 
-    res.json({
-      success: true,
-      message: "Payment verified successfully",
-      order,
-    });
+    res.json({ success: true, order });
   } catch (err) {
     console.error("Verify error:", err.response?.data || err.message);
     res.status(500).json({ message: "Payment verification failed" });
   }
 };
 
-module.exports = { payWithPaystack, verifyPayment };
+/**
+ * ===============================
+ * PAYSTACK WEBHOOK (SOURCE OF TRUTH)
+ * ===============================
+ */
+exports.paystackWebhook = async (req, res) => {
+  try {
+    const hash = crypto
+      .createHmac("sha512", process.env.PAYSTACK_SECRET_KEY)
+      .update(JSON.stringify(req.body))
+      .digest("hex");
+
+    if (hash !== req.headers["x-paystack-signature"]) {
+      return res.status(401).send("Invalid signature");
+    }
+
+    const event = req.body;
+
+    if (event.event === "charge.success") {
+      const { reference, metadata } = event.data;
+      const orderId = metadata?.orderId;
+
+      await Payment.findOneAndUpdate(
+        { reference },
+        { paymentStatus: "completed" }
+      );
+
+      await Order.findByIdAndUpdate(orderId, {
+        paymentStatus: "completed",
+      });
+    }
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("Webhook error:", err.message);
+    res.sendStatus(500);
+  }
+};
