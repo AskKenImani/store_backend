@@ -7,6 +7,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const userRoutes = require('./routes/userRoutes');
+const statsRoutes = require("./routes/statsRoutes");
 const authMiddleware = require('./middleware/authMiddleware');
 const cors = require('cors');
 
@@ -39,7 +40,7 @@ app.use(
   express.raw({ type: "application/json" })
 );
 
-
+app.use("/api/stats", statsRoutes);
 app.use('/api/auth', authRoutes);       
 app.use('/api/products', productRoutes);  
 app.use('/api/orders', orderRoutes);     
